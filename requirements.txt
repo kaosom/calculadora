@@ -1,0 +1,13 @@
+# Calculadora RPC - Dependencias
+# Python 3.7+ requerido
+
+# Las siguientes librerías están incluidas en Python estándar:
+# - xmlrpc.server (para el servidor RPC)
+# - xmlrpc.client (para los clientes RPC)
+# - logging (para logging)
+# - socket (para descubrimiento de red)
+# - threading (para operaciones concurrentes)
+# - typing (para type hints)
+
+# No se requieren dependencias externas adicionales
+# El proyecto utiliza únicamente librerías estándar de Python
