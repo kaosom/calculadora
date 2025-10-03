@@ -4,6 +4,8 @@ import xmlrpc.server
 import sys
 import logging
 from typing import Union
+import threading
+import time
 
 logging.basicConfig(
     level=logging.INFO,
@@ -16,11 +18,61 @@ class CalculatorService:
     
     def __init__(self):
         self.operations_count = 0
+        self._op_lock = threading.Lock()
+        self._processing = False
+
+    def _maybe_fail(self):
+        # Modo determinístico: por ahora no se simulan fallos aleatorios
+        return None
+
+    def _pre_process(self) -> Union[None, dict]:
+        # Modo determinístico: delay fijo a 0s para forzar colisiones entre solicitudes concurrentes
+        pre_delay = 0
+        print(f"Delay previo (fijo): {pre_delay}s")
+        time.sleep(pre_delay)
+        failure = self._maybe_fail()
+        if failure is not None:
+            print(f"Fallo simulado: {failure['error']}")
+            return failure
+        if not self._op_lock.acquire(blocking=False):
+            print("Solicitud rechazada: proceso en ejecución")
+            return {
+                'success': False,
+                'error': 'proceso en ejecución, solicitud rechazada'
+            }
+        self._processing = True
+        return None
+
+    def _post_process(self):
+        self._processing = False
+        try:
+            self._op_lock.release()
+        except Exception:
+            pass
+
+    def _validate_numbers(self, a, b) -> Union[None, dict]:
+        if not isinstance(a, (int, float)) or not isinstance(b, (int, float)):
+            return {
+                'success': False,
+                'error': 'entradas inválidas'
+            }
+        return None
     
     def add(self, a: Union[int, float], b: Union[int, float]) -> dict:
         try:
-            self.operations_count += 1
-            result = a + b
+            pre = self._pre_process()
+            if pre is not None:
+                return pre
+            try:
+                val = self._validate_numbers(a, b)
+                if val is not None:
+                    return val
+                self.operations_count += 1
+                print("Delay de procesamiento: 3s")
+                time.sleep(3)
+                result = a + b
+            finally:
+                self._post_process()
             print(f"Solicitud recibida: SUMA - {a} + {b}")
             logger.info(f"Operación #{self.operations_count}: {a} + {b} = {result}")
             return {
@@ -41,8 +93,19 @@ class CalculatorService:
     
     def subtract(self, a: Union[int, float], b: Union[int, float]) -> dict:
         try:
-            self.operations_count += 1
-            result = a - b
+            pre = self._pre_process()
+            if pre is not None:
+                return pre
+            try:
+                val = self._validate_numbers(a, b)
+                if val is not None:
+                    return val
+                self.operations_count += 1
+                print("Delay de procesamiento: 3s")
+                time.sleep(3)
+                result = a - b
+            finally:
+                self._post_process()
             print(f"Solicitud recibida: RESTA - {a} - {b}")
             logger.info(f"Operación #{self.operations_count}: {a} - {b} = {result}")
             return {
@@ -63,8 +126,19 @@ class CalculatorService:
     
     def multiply(self, a: Union[int, float], b: Union[int, float]) -> dict:
         try:
-            self.operations_count += 1
-            result = a * b
+            pre = self._pre_process()
+            if pre is not None:
+                return pre
+            try:
+                val = self._validate_numbers(a, b)
+                if val is not None:
+                    return val
+                self.operations_count += 1
+                print("Delay de procesamiento: 3s")
+                time.sleep(3)
+                result = a * b
+            finally:
+                self._post_process()
             print(f"Solicitud recibida: MULTIPLICACIÓN - {a} * {b}")
             logger.info(f"Operación #{self.operations_count}: {a} * {b} = {result}")
             return {
@@ -85,20 +159,29 @@ class CalculatorService:
     
     def divide(self, a: Union[int, float], b: Union[int, float]) -> dict:
         try:
-            self.operations_count += 1
+            pre = self._pre_process()
+            if pre is not None:
+                return pre
             print(f"Solicitud recibida: DIVISION - {a} / {b}")
-            
-            if b == 0:
-                error_msg = "Error: División por cero no permitida"
-                print(f"Error en servidor: {error_msg}")
-                logger.error(f"Operación #{self.operations_count}: {error_msg}")
-                return {
-                    'success': False,
-                    'error': error_msg,
-                    'operation': f"{a} / {b}"
-                }
-            
-            result = a / b
+            try:
+                val = self._validate_numbers(a, b)
+                if val is not None:
+                    return val
+                if b == 0:
+                    error_msg = "Error: División por cero no permitida"
+                    print(f"Error en servidor: {error_msg}")
+                    logger.error(f"Operación #{self.operations_count + 1}: {error_msg}")
+                    return {
+                        'success': False,
+                        'error': error_msg,
+                        'operation': f"{a} / {b}"
+                    }
+                self.operations_count += 1
+                print("Delay de procesamiento: 3s")
+                time.sleep(3)
+                result = a / b
+            finally:
+                self._post_process()
             logger.info(f"Operación #{self.operations_count}: {a} / {b} = {result}")
             return {
                 'success': True,
